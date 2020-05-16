@@ -79,7 +79,7 @@ function sendmsg(message) {
 
 update_invite_url();
 function update_invite_url() {
-  if (session_id) invite_url = `http://localhost:8080/${session_id}`;
+  if (session_id) invite_url = `${location.origin}/${session_id}`;
   else invite_url = "";
   $(".invite-url").textContent = invite_url;
 }
@@ -298,7 +298,7 @@ $(".add-file").addEventListener("click", ({ target: btn }) => {
 
 const rtcConfig = { iceServers: [{ urls: "stun://stun.l.google.com:19302" }] };
 
-const ws = new WebSocket("ws://localhost:8080", "json");
+const ws = new WebSocket(`ws://${location.host}`, "json");
 
 const pc = new RTCPeerConnection();
 const handlers = {};
