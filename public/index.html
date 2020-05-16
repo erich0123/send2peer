@@ -7,14 +7,19 @@
       name="viewport"
       content="width: device-width, height: device-height, initial-scale: 1"
     />
-    <!-- <link rel="stylesheet" href="style.css"> -->
-    <script src="index.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <script src="index.js" defer></script>
   </head>
   <body>
-    <ul class="user-list"></ul>
-    <label for="">Local</label>
-    <video autoplay width="200" height="100" class="local-video"></video>
-    <label for="">Remote</label>
-    <video autoplay width="200" height="100" class="remote-video"></video>
+    <main class="main-container">
+      <ul class="file-list">
+        <li class="file-list__item"><button class="button add-file">+</button></li>
+      </ul>
+      <p class="info-box">
+        <span>Invite link:</span>
+        <span class="invite-url"></span>
+        <button class="button button-primary invite-url__copy">Copy</button>
+      </p>
+    </main>
   </body>
 </html>

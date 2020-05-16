@@ -1,68 +1,105 @@
 // Server
 //
 const log = console.log.bind();
-const port = 5001;
-const WebSocket = require("ws");
-const wss = new WebSocket.Server({ port: port });
+const error = console.error.bind();
 
-const error = {
-  format: {
-    message: "Error: Malformed message",
-  },
-  args: {
-    message: "Error: Missing an argument for this message type",
-  },
-};
+const { sendmsg, generateId } = require("./utils");
+
+const http = require("http");
+const express = require("express");
+const WebSocket = require("ws");
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 const clients = {};
+const sessions = {};
+
+const handlers = {};
+
+handlers.ping = (ws, message) => {
+  sendmsg(ws, { type: "pong" });
+};
+
+handlers.register = (ws, message) => {
+  const { session_id } = message;
+
+  if (session_id) {
+    // Peer B registers with invite url
+
+    // retrieve session
+    const session = sessions[session_id];
+
+    // generate client id for peerB
+    session.peerB = generateId(20);
+
+    // register websocket for peerB
+    clients[session.peerB] = ws;
+
+    // send new_peer event to peerA
+    sendmsg(clients[session.peerA], {
+      type: "new_peer",
+      peer_id: session.peerB,
+    });
+
+    // send new_peer event to peerB
+    sendmsg(clients[session.peerB], {
+      type: "new_peer",
+      peer_id: session.peerA,
+    });
+  } else {
+    // Peer A registers
+    const session_id = generateId(10);
+
+    // create a new session
+    const session = (sessions[session_id] = {
+      peerA: null,
+      peerB: null,
+    });
+
+    // generate client id for peerA
+    session.peerA = generateId(20);
+
+    // register websocket for peerA
+    clients[session.peerA] = ws;
+
+    // send session id to peerA
+    sendmsg(clients[session.peerA], {
+      type: "session_id",
+      session_id: session_id,
+    });
+  }
+};
+
+handlers.offer = forwardmsg;
+handlers.answer = forwardmsg;
+handlers.candidate = forwardmsg;
+function forwardmsg(ws, message) {
+  sendmsg(clients[message.target], message);
+}
 
 wss.on("connection", (ws, req) => {
-  const data = {
-    message: "Hello from server",
-  };
-  ws.send(JSON.stringify(data));
+  ws.on("message", (rawMessage) => {
+    const message = JSON.parse(rawMessage);
+    const { type } = message;
 
-  ws.on("message", (message) => {
-    const data = JSON.parse(message);
+    log("<", message);
 
-    if (!("type" in data)) return sendErr(ws, error.format);
-
-    if (data.type === "register") {
-      if (!("username" in data)) return sendErr(ws, error.args);
-      clients[data.username] = ws;
-      log(`Registered ${data.username}`);
-    }
-
-    if (data.type === "get-users") {
-      sendMsg(ws, { type: "users", users: Object.keys(clients) });
-    }
-
-    if (data.type === "message") {
-      let from;
-      for (let name in clients)
-        if (clients[name] === ws) {
-          from = name;
-          break;
-        }
-
-      log(`Direct message: ${from} -> ${data.target}`);
-      sendMsg(clients[data.target], {
-        type: "message",
-        from: from,
-        body: data.body,
-      });
+    if (!type) error("No message type specified");
+    else if (!(type in handlers)) error("No handler registered for", type);
+    else {
+      handlers[message.type](ws, message);
     }
   });
 });
 
-function sendErr(ws, error) {
-  const data = {
-    type: "error",
-    error: error,
-  };
-  ws.send(JSON.stringify(data));
-}
+app.use(express.static("public"));
 
-function sendMsg(ws, data) {
-  ws.send(JSON.stringify(data));
-}
+app.get("/:session_id", (req, res) => {
+  res.sendFile("index.html", { root: "public" });
+});
+
+server.listen(8080, () => {
+  log("Server listening on", server.address());
+});
