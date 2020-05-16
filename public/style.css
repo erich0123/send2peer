@@ -110,9 +110,10 @@ button {
 
   border: 0.2rem solid var(--color-primary);
   border-radius: 8px;
-  height: 10rem;
+  min-height: 10rem;
+  height: auto;
 
-  overflow: hidden;
+  overflow: auto;
 }
 
 .file-list__item__name {
