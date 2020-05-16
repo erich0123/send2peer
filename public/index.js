@@ -10,18 +10,15 @@ let peer_id;
 let making_offer = false;
 let ignore_offer = false;
 let polite;
-let send_channel;
-let recv_channel;
 let downloading = false;
 
 let recv_file;
 
 const files = {};
 const send_queue = [];
-const recv_queue = [];
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 class FileElement {
@@ -71,13 +68,12 @@ class FileElement {
   }
 
   addBlob(blob) {
-    log(`Adding blob to ${this.name}:`, blob);
     this.blobs.push(blob);
   }
 }
 
 function sendmsg(message) {
-  log(">", message);
+  // log(">", message);
   ws.send(JSON.stringify(message));
 }
 
@@ -88,54 +84,12 @@ function update_invite_url() {
   $(".invite-url").textContent = invite_url;
 }
 
-async function sendFiles() {
-  let name;
-  let message = { files: [] };
-  while ((name = send_queue.pop())) {
-    const file = files[name];
-    log("Adding file to message:", file);
-    message.files.push({
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      progress: 0,
-      data: [],
-    });
-  }
-
-  log(">", message);
-  send_channel.send(JSON.stringify(message));
-
-  send_channel.onmessage = async (rawMessage) => {
-    if (rawMessage.data != "start") return;
-
-    // await sleep(2000);
-
-    while ((f = message.files.pop())) {
-      const file = files[f.name];
-      log("Sending file:", f.name);
-
-      let reader = file.file.stream().getReader();
-      let done;
-      let value;
-      while (true) {
-        ({ done, value } = await reader.read())
-        log("Sending blob:", value);
-        if (!value) break;
-        send_channel.send(value);
-        files[file.name].addProgress(value.length);
-      }
-    }
-  };
-}
-
 function insertFile(fe) {
   const file_list = $(".file-list");
 
   file_list.insertAdjacentHTML("afterbegin", fe.render());
   const el = file_list.firstElementChild;
   fe.setElement(el);
-  files[fe.name] = fe;
   log("FileElements:", files);
 }
 
@@ -148,11 +102,121 @@ function enqueueFiles(pending_files) {
     const fe = new FileElement(file.name, file.size, file.type, "outgoing");
     fe.file = file;
     insertFile(fe);
+    files[fe.name] = fe;
     log("Adding file to queue:", fe);
     send_queue.push(fe.name);
   }
 
-  if (send_channel) sendFiles();
+  flushFiles();
+}
+
+function flushFiles() {
+  log("Flushing files:", send_queue);
+  const fname = send_queue.pop();
+  log(fname);
+  log(files[fname]);
+  sendFile(files[fname]);
+}
+
+async function sendFile(fe) {
+  log("Sending file:", fe);
+
+  const msg = { name: fe.name, size: fe.file.size, type: fe.file.type };
+
+  let chunksize = 65536;
+  let offset = 0;
+  let chunk;
+  let progress_interval;
+
+  const update_progress = () => {
+    fe.setProgress(offset);
+  };
+
+  const sendSlice = () => {
+    let c = Math.min(buffer.byteLength - offset, chunksize);
+    chunk = new DataView(buffer, offset, c);
+    channel.send(chunk);
+
+    offset += c;
+    fe.addProgress(c);
+
+    if (offset >= buffer.byteLength) {
+      log(`Done: ${offset} >= ${buffer.byteLength}`);
+      channel.send(0);
+      clearInterval(progress_interval);
+      return;
+    }
+  };
+
+  const buffer = await fe.file.arrayBuffer();
+
+  const channel = pc.createDataChannel(JSON.stringify(msg));
+  channel.bufferedAmountLowThreshold = 65535;
+
+  channel.onopen = (e) => {
+    log("Send-Channel opened");
+    setInterval(update_progress, 500);
+    update_progress();
+    sendSlice();
+  };
+
+  channel.onclose = (e) => {
+    log("Send-Channel closed");
+  };
+
+  channel.onerror = (e) => error(e);
+
+  channel.onbufferedamountlow = (e) => {
+    sendSlice();
+  };
+}
+
+function recvFile(channel) {
+  const msg = JSON.parse(channel.label);
+  log("Receiving file:", msg);
+
+  files[msg.name] = new FileElement(msg.name, msg.size, msg.type, "incoming");
+  insertFile(files[msg.name]);
+
+  let total = 0;
+  const update_progress = () => {
+    files[msg.name].setProgress(total);
+  };
+  let progress_interval = setInterval(update_progress, 500);
+
+  channel.onclose = (e) => {
+    log("Recv-Channel closed");
+  };
+
+  channel.onerror = (e) => error(e);
+
+  channel.onmessage = (rawMessage) => {
+    if (rawMessage.data == 0) {
+      log(rawMessage.data);
+      log("File received");
+      clearInterval(progress_interval);
+      update_progress();
+      processFile(files[msg.name]);
+      return;
+    }
+    files[msg.name].addBlob(rawMessage.data);
+    const c = rawMessage.data.size;
+    log(c);
+    total += c ? c : 0;
+  };
+}
+
+function processFile(fe) {
+  const blob = new Blob(fe.blobs);
+  const url = URL.createObjectURL(blob);
+  log("Object url:", url);
+
+  fe.element.insertAdjacentHTML(
+    "beforeend",
+    `
+  <a href="${url}" download="${fe.name}">Download</a>
+  `
+  );
 }
 
 function start() {
@@ -203,57 +267,8 @@ function start() {
     }
   };
 
-  send_channel = pc.createDataChannel(`file-channel: ${peer_id}`);
-
-  send_channel.onopen = (e) => {
-    log(`outgoing file channel opened (${send_channel.binaryType})`);
-    sendFiles();
-  };
-
-  pc.ondatachannel = (e) => {
-    recv_channel = e.channel;
-
-    recv_channel.onopen = () => {
-      log(`incoming file channel opened (${e.channel.binaryType})`);
-    };
-    recv_channel.onmessage = async (rawMessage) => {
-      if (downloading) {
-        if (recv_file) {
-          const blob = rawMessage.data;
-          log("Received blob:", blob);
-
-          recv_file.addBlob(blob);
-          recv_file.addProgress(blob.size);
-
-          log("Progress:", recv_file.progress);
-
-          if (recv_file.progress >= recv_file.size) {
-            log("Done!");
-            recv_file = null;
-            downloading = false;
-          }
-        } else if ((next = recv_queue.pop())) {
-          log("Downloading next file:", next);
-          log(files);
-          recv_file = files[next.name];
-          log("recv_file:", recv_file);
-        } else {
-          downloading = false;
-        }
-      } else {
-        const message = JSON.parse(rawMessage.data);
-        if ("files" in message) {
-          downloading = true;
-          recv_queue.push(...message.files);
-          log(recv_queue);
-          for (f of recv_queue) {
-            insertFile(new FileElement(f.name, f.size, f.type, "incoming"));
-          }
-
-          recv_channel.send("start");
-        }
-      }
-    };
+  pc.ondatachannel = ({ channel }) => {
+    channel.onopen = () => recvFile(channel);
   };
 }
 
@@ -316,7 +331,7 @@ ws.addEventListener("open", () => {
 
 ws.addEventListener("message", (rawMessage) => {
   const message = JSON.parse(rawMessage.data);
-  log("<", message);
+  // log("<", message);
 
   const { type } = message;
 
