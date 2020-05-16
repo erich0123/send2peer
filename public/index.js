@@ -298,7 +298,7 @@ $(".add-file").addEventListener("click", ({ target: btn }) => {
 
 const rtcConfig = { iceServers: [{ urls: "stun://stun.l.google.com:19302" }] };
 
-const ws = new WebSocket(`ws://${location.host}`, "json");
+const ws = new WebSocket(`wss://${location.host}`, "json");
 
 const pc = new RTCPeerConnection();
 const handlers = {};
