@@ -100,6 +100,6 @@ app.get("/:session_id", (req, res) => {
   res.sendFile("index.html", { root: "public" });
 });
 
-server.listen(8080, () => {
+server.listen(process.env.PORT, () => {
   log("Server listening on", server.address());
 });
