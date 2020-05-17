@@ -20,10 +20,6 @@ else
 const files = {};
 const send_queue = [];
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 class FileElement {
   constructor(name, size, type, direction) {
     this.name = name;
