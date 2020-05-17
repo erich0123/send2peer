@@ -4,15 +4,18 @@ const $ = document.querySelector.bind(document);
 const log = console.log.bind();
 const error = console.error.bind();
 
+let websocket_url;
 let session_id = location.pathname.slice(1);
 let invite_url;
 let peer_id;
 let making_offer = false;
 let ignore_offer = false;
 let polite;
-let downloading = false;
 
-let recv_file;
+if (location.hostname === "localhost")
+  websocket_url = `ws://${location.host}`
+else
+  websocket_url = `wss://${location.host}`
 
 const files = {};
 const send_queue = [];
@@ -307,7 +310,7 @@ const rtcConfig = {
   ],
 };
 
-const ws = new WebSocket(`wss://${location.host}`, "json");
+const ws = new WebSocket(websocket_url, "json");
 
 const pc = new RTCPeerConnection();
 const handlers = {};
