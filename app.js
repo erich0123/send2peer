@@ -29,7 +29,7 @@ handlers.ping = (ws, message) => {
 handlers.register = (ws, message) => {
   const { session_id } = message;
 
-  if (session_id) {
+  if (session_id && session_id in sessions) {
     // Peer B registers with invite url
 
     // retrieve session
@@ -101,7 +101,10 @@ wss.on("connection", (ws, req) => {
 app.use(express.static("public"));
 
 app.get("/:session_id", (req, res) => {
-  res.sendFile("index.html", { root: "public" });
+  const {session_id} = req.params;
+  if (session_id in sessions) {
+    res.sendFile("index.html", { root: "public" });
+  } else res.status(404).send("The invite link is invalid.");
 });
 
 server.listen(process.env.PORT, () => {
