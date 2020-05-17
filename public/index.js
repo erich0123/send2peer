@@ -1,24 +1,24 @@
-// Client
-//
 const $ = document.querySelector.bind(document);
 const log = console.log.bind();
 const error = console.error.bind();
-
-let websocket_url;
-let session_id = location.pathname.slice(1);
-let invite_url;
-let peer_id;
-let making_offer = false;
-let ignore_offer = false;
-let polite;
-
-if (location.hostname === "localhost")
-  websocket_url = `ws://${location.host}`
-else
-  websocket_url = `wss://${location.host}`
-
 const files = {};
 const send_queue = [];
+const rtcConfig = {
+  iceServers: [{ urls: "stun://stun.l.google.com:19302" }],
+};
+const websocket_url = `${location.hostname === "localhost" ? "ws" : "wss"}://${
+  location.host
+}`;
+const ws = new WebSocket(websocket_url, "json");
+const pc = new RTCPeerConnection(rtcConfig);
+const handlers = {};
+
+let polite;
+let peer_id;
+let invite_url;
+let making_offer = false;
+let ignore_offer = false;
+let session_id = location.pathname.slice(1);
 
 class FileElement {
   constructor(name, size, type, direction) {
@@ -76,11 +76,11 @@ function sendmsg(message) {
   ws.send(JSON.stringify(message));
 }
 
-update_invite_url();
 function update_invite_url() {
   if (session_id) invite_url = `${location.origin}/${session_id}`;
   else invite_url = "";
   $(".invite-url").textContent = invite_url;
+  log("Session id updated:", session_id);
 }
 
 function insertFile(fe) {
@@ -93,11 +93,9 @@ function insertFile(fe) {
 }
 
 function enqueueFiles(pending_files) {
-  const file_list = $(".file-list");
-
   log("Adding files to queue:", pending_files);
   // Create FileElement and add file to DOM
-  for (file of pending_files) {
+  for (let file of pending_files) {
     const fe = new FileElement(file.name, file.size, file.type, "outgoing");
     fe.file = file;
     insertFile(fe);
@@ -152,20 +150,20 @@ async function sendFile(fe) {
   const channel = pc.createDataChannel(JSON.stringify(msg));
   channel.bufferedAmountLowThreshold = 65535;
 
-  channel.onopen = (e) => {
+  channel.onopen = () => {
     log("Send-Channel opened");
     setInterval(update_progress, 500);
     update_progress();
     sendSlice();
   };
 
-  channel.onclose = (e) => {
+  channel.onclose = () => {
     log("Send-Channel closed");
   };
 
   channel.onerror = (e) => error(e);
 
-  channel.onbufferedamountlow = (e) => {
+  channel.onbufferedamountlow = () => {
     sendSlice();
   };
 }
@@ -183,7 +181,7 @@ function recvFile(channel) {
   };
   let progress_interval = setInterval(update_progress, 500);
 
-  channel.onclose = (e) => {
+  channel.onclose = () => {
     log("Recv-Channel closed");
   };
 
@@ -218,59 +216,6 @@ function processFile(fe) {
   );
 }
 
-function start() {
-  log("Start...");
-
-  pc.onicecandidate = ({ candidate }) => {
-    sendmsg({ type: "candidate", target: peer_id, candidate: candidate });
-  };
-
-  pc.onnegotiationneeded = async () => {
-    try {
-      making_offer = true;
-      await pc.setLocalDescription();
-      sendmsg({
-        type: "offer",
-        target: peer_id,
-        description: pc.localDescription,
-      });
-    } finally {
-      making_offer = false;
-    }
-  };
-
-  handlers.offer = async ({ description }) => {
-    log("Signaling state:", pc.signalingState);
-    const collision = making_offer || pc.signalingState != "stable";
-    ignore_offer = collision && !polite;
-    if (ignore_offer) return;
-
-    await pc.setRemoteDescription(description);
-    await pc.setLocalDescription();
-    sendmsg({
-      type: "answer",
-      target: peer_id,
-      description: pc.localDescription,
-    });
-  };
-
-  handlers.answer = async ({ description }) => {
-    await pc.setRemoteDescription(description);
-  };
-
-  handlers.candidate = async ({ candidate }) => {
-    try {
-      await pc.addIceCandidate(candidate);
-    } catch (err) {
-      if (!ignore_offer) throw err;
-    }
-  };
-
-  pc.ondatachannel = ({ channel }) => {
-    channel.onopen = () => recvFile(channel);
-  };
-}
-
 $(".invite-url__copy").addEventListener("click", ({ target: btn }) => {
   navigator.clipboard.writeText(invite_url).then(() => {
     const { textContent } = btn;
@@ -284,7 +229,7 @@ $(".invite-url__copy").addEventListener("click", ({ target: btn }) => {
   });
 });
 
-$(".add-file").addEventListener("click", ({ target: btn }) => {
+$(".add-file").addEventListener("click", () => {
   const file_input = document.createElement("input");
   file_input.type = "file";
   file_input.multiple = true;
@@ -295,39 +240,66 @@ $(".add-file").addEventListener("click", ({ target: btn }) => {
   file_input.click();
 });
 
-const rtcConfig = {
-  iceServers: [
-    { urls: "stun://stun.l.google.com:19302" },
-    { urls: "stun://stun1.l.google.com:19302" },
-    { urls: "stun://stun2.l.google.com:19302" },
-    { urls: "stun://stun3.l.google.com:19302" },
-    { urls: "stun://stun4.l.google.com:19302" },
-    { urls: "stun.ekiga.net" },
-  ],
+pc.onnegotiationneeded = async () => {
+  try {
+    making_offer = true;
+    await pc.setLocalDescription();
+    sendmsg({
+      type: "offer",
+      target: peer_id,
+      description: pc.localDescription,
+    });
+  } finally {
+    making_offer = false;
+  }
 };
 
-const ws = new WebSocket(websocket_url, "json");
+pc.onicecandidate = ({ candidate }) => {
+  sendmsg({ type: "candidate", target: peer_id, candidate: candidate });
+};
 
-const pc = new RTCPeerConnection();
-const handlers = {};
-
-handlers.pong = (message) => log("Pong!");
+pc.ondatachannel = ({ channel }) => {
+  channel.onopen = () => recvFile(channel);
+};
 
 handlers.session_id = (message) => {
   session_id = message.session_id;
   update_invite_url();
-  log("Session id updated:", session_id);
 };
 
 handlers.new_peer = (message) => {
   peer_id = message.peer_id;
   log("Peer id updated:", peer_id);
-  start();
+};
+
+handlers.offer = async ({ description }) => {
+  log("Signaling state:", pc.signalingState);
+  const collision = making_offer || pc.signalingState != "stable";
+  ignore_offer = collision && !polite;
+  if (ignore_offer) return;
+
+  await pc.setRemoteDescription(description);
+  await pc.setLocalDescription();
+  sendmsg({
+    type: "answer",
+    target: peer_id,
+    description: pc.localDescription,
+  });
+};
+
+handlers.answer = async ({ description }) => {
+  await pc.setRemoteDescription(description);
+};
+
+handlers.candidate = async ({ candidate }) => {
+  try {
+    await pc.addIceCandidate(candidate);
+  } catch (err) {
+    if (!ignore_offer) throw err;
+  }
 };
 
 ws.addEventListener("open", () => {
-  sendmsg({ type: "ping" });
-
   if (session_id) {
     sendmsg({ type: "register", session_id: session_id });
     polite = false;
@@ -346,3 +318,5 @@ ws.addEventListener("message", (rawMessage) => {
   if (!(type in handlers)) error(`No handler for ${type}`);
   else handlers[type](message);
 });
+
+update_invite_url();

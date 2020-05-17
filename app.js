@@ -22,10 +22,6 @@ const sessions = {};
 
 const handlers = {};
 
-handlers.ping = (ws, message) => {
-  sendmsg(ws, { type: "pong" });
-};
-
 handlers.register = (ws, message) => {
   const { session_id } = message;
 
@@ -83,7 +79,7 @@ function forwardmsg(ws, message) {
   sendmsg(clients[message.target], message);
 }
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", (ws) => {
   ws.on("message", (rawMessage) => {
     const message = JSON.parse(rawMessage);
     const { type } = message;
@@ -101,7 +97,7 @@ wss.on("connection", (ws, req) => {
 app.use(express.static("public"));
 
 app.get("/:session_id", (req, res) => {
-  const {session_id} = req.params;
+  const { session_id } = req.params;
   if (session_id in sessions) {
     res.sendFile("index.html", { root: "public" });
   } else res.status(404).send("The invite link is invalid.");
