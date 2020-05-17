@@ -309,6 +309,7 @@ handlers.candidate = async ({ candidate }) => {
   try {
     await pc.addIceCandidate(candidate);
   } catch (err) {
+    error("Error in addIceCandidate");
     if (!ignore_offer) throw err;
   }
 };
