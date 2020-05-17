@@ -108,10 +108,12 @@ function enqueueFiles(pending_files) {
 }
 
 function flushFiles() {
+  if (!peer_id) return;
   log("Flushing files:", send_queue);
+
   const fname = send_queue.pop();
-  log(fname);
-  log(files[fname]);
+  if (!fname) return;
+
   sendFile(files[fname]);
 }
 
@@ -262,6 +264,10 @@ pc.ondatachannel = ({ channel }) => {
   channel.onopen = () => recvFile(channel);
 };
 
+handlers.error = (message) => {
+  error("Error (WebSocket):", message.error);
+}
+
 handlers.session_id = (message) => {
   session_id = message.session_id;
   update_invite_url();
@@ -270,6 +276,7 @@ handlers.session_id = (message) => {
 handlers.new_peer = (message) => {
   peer_id = message.peer_id;
   log("Peer id updated:", peer_id);
+  flushFiles();
 };
 
 handlers.offer = async ({ description }) => {

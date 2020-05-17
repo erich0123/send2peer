@@ -76,7 +76,13 @@ handlers.offer = forwardmsg;
 handlers.answer = forwardmsg;
 handlers.candidate = forwardmsg;
 function forwardmsg(ws, message) {
-  sendmsg(clients[message.target], message);
+  const target_ws = clients[message.target];
+  if (!target_ws) {
+    sendmsg(ws, { type: "error", error: "No peer with that id" });
+    return;
+  }
+
+  sendmsg(target_ws, message);
 }
 
 wss.on("connection", (ws) => {
