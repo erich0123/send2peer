@@ -41,29 +41,36 @@ class FileElement {
       <span class="file-list__item__name">${this.name}</span>
       <span class="file-list__item__type">${this.type}</span>
       <span class="file-list__item__size">${this.size}</span>
-      <progress
-        class="file-list__item__progress"
-        value="${this.progress}"
-        max="${this.size}">
-      </progress>
+      <div role="progressbar"
+        aria-valuenow="0"
+        aria-valuemin="0"
+        aria-valuemax="${this.size}"
+        class="progress-bar file-list__item__progress">
+        <div class="progress-value" style="width: 0%;"></div>
+      </div>
     </li>`;
   }
 
   setElement(el) {
     this.element = el;
-    return this;
+  }
+
+  renderProgress() {
+    const progress = this.element.querySelector(".progress-bar");
+    const value = progress.querySelector(".progress-value");
+
+    progress.setAttribute("aria-valuenow", this.progress);
+    value.style.width = `${((this.progress / this.size) * 100).toFixed(2)}%`;
   }
 
   setProgress(value) {
     this.progress = value;
-    this.element.querySelector("progress").value = value;
-    return this;
+    this.renderProgress();
   }
 
   addProgress(value) {
     this.progress += value;
-    this.element.querySelector("progress").value = this.progress;
-    return this;
+    this.renderProgress();
   }
 
   addBlob(blob) {
@@ -143,6 +150,7 @@ async function sendFile(fe) {
       log(`Done: ${offset} >= ${buffer.byteLength}`);
       channel.send(0);
       clearInterval(progress_interval);
+      update_progress();
       return;
     }
   };
@@ -154,7 +162,7 @@ async function sendFile(fe) {
 
   channel.onopen = () => {
     log("Send-Channel opened");
-    setInterval(update_progress, 500);
+    progress_interval = setInterval(update_progress, 100);
     update_progress();
     sendSlice();
   };
@@ -167,6 +175,7 @@ async function sendFile(fe) {
 
   channel.onbufferedamountlow = () => {
     sendSlice();
+    update_progress();
   };
 }
 
@@ -178,10 +187,9 @@ function recvFile(channel) {
   insertFile(files[msg.name]);
 
   let total = 0;
-  const update_progress = () => {
-    files[msg.name].setProgress(total);
-  };
-  let progress_interval = setInterval(update_progress, 500);
+  const update_progress = () => files[msg.name].setProgress(total);
+  const progress_interval = setInterval(update_progress, 100);
+  update_progress();
 
   channel.onclose = () => {
     log("Recv-Channel closed");
@@ -200,7 +208,6 @@ function recvFile(channel) {
     }
     files[msg.name].addBlob(rawMessage.data);
     const c = rawMessage.data.size;
-    log(c);
     total += c ? c : 0;
   };
 }
@@ -266,7 +273,7 @@ pc.ondatachannel = ({ channel }) => {
 
 handlers.error = (message) => {
   error("Error (WebSocket):", message.error);
-}
+};
 
 handlers.session_id = (message) => {
   session_id = message.session_id;

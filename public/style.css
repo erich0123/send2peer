@@ -4,6 +4,7 @@
 :root {
   --color-primary: #2fdae0;
   --color-primary-light: #9af2f5;
+  --color-progress: #cffff0;
   --color-text: #333333;
   --color-text-light: #6e6e6e;
   --color-inactive: #6e6e6e;
@@ -101,6 +102,8 @@ button {
 }
 
 .file-list__item {
+  position: relative;
+
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -123,7 +126,23 @@ button {
 }
 .file-list__item__size {
 }
+
 .file-list__item__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+
+  height: 10rem;
+  width: 100%;
+
+  background-color: lightgrey;
+}
+
+.progress-value {
+  height: 10rem;
+  width: 0;
+  background-color: var(--color-progress);
 }
 
 .outgoing-file .file-list__item__name::before {
