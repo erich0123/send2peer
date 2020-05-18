@@ -98,6 +98,14 @@ wss.on("connection", (ws) => {
   });
 });
 
+setInterval(
+  () =>
+    wss.clients.forEach((ws) => {
+      ws.ping();
+    }),
+  30000
+);
+
 app.use(express.static("public"));
 
 app.get("/:session_id", (req, res) => {
