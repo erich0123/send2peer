@@ -338,4 +338,6 @@ ws.addEventListener("message", (rawMessage) => {
   else handlers[type](message);
 });
 
+ws.addEventListener("error", error);
+
 update_invite_url();
