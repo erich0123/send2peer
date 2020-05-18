@@ -3,9 +3,7 @@
 const debug = process.env.NODE_ENV !== "production";
 
 const error = console.error.bind();
-function log(...message) {
-  if (debug) console.log(...message);
-}
+const log = console.log.bind();
 
 const { sendmsg, generateId } = require("./utils");
 
