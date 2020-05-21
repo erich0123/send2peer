@@ -9,7 +9,7 @@
     "watch": "nodemon -e watch -x \"npm run debug\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Erich Schneider",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
