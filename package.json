@@ -11,6 +11,7 @@
   },
   "author": "Erich Schneider",
   "license": "ISC",
+  "repository": "github:erich0123/send2peer",
   "dependencies": {
     "express": "^4.17.1",
     "ws": "^7.2.5"
