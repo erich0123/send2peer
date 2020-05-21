@@ -1,7 +1,7 @@
 {
   "name": "send2peer",
   "version": "1.0.0",
-  "description": "",
+  "description": "Send files to a peer over a WebRTC connection.",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
