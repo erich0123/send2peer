@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "debug": "PORT=8080 node --inspect app.js",
+    "watch": "nodemon -e watch -x \"npm run debug\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
