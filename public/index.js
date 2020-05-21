@@ -79,7 +79,6 @@ class FileElement {
 }
 
 function sendmsg(message) {
-  log(">", message);
   ws.send(JSON.stringify(message));
 }
 
@@ -330,7 +329,6 @@ ws.addEventListener("open", () => {
 
 ws.addEventListener("message", (rawMessage) => {
   const message = JSON.parse(rawMessage.data);
-  log("<", message);
 
   const { type } = message;
 
