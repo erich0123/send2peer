@@ -8,14 +8,30 @@
       content="width: device-width, height: device-height, initial-scale: 1"
     />
     <link rel="stylesheet" href="style.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js" defer></script>
+    <link
+      rel="preload"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap"
+      />
+    </noscript>
+    <script
+      src="https://webrtc.github.io/adapter/adapter-latest.js"
+      defer
+    ></script>
     <script src="index.js" defer></script>
   </head>
   <body>
     <main class="main-container">
       <ul class="file-list">
-        <li class="file-list__item"><button class="button add-file">+</button></li>
+        <li class="file-list__item">
+          <button class="button add-file">+</button>
+        </li>
       </ul>
       <p class="info-box">
         <span>Invite link:</span>
