@@ -1,6 +1,7 @@
 // Server
 //
 const debug = process.env.NODE_ENV !== "production";
+const port = process.env.PORT || 3000;
 
 const error = console.error.bind();
 const log = console.log.bind();
@@ -115,6 +116,6 @@ app.get("/:session_id", (req, res) => {
   } else res.status(404).send("The invite link is invalid.");
 });
 
-server.listen(process.env.PORT, () => {
+server.listen(port, () => {
   log("Server listening on", server.address());
 });
